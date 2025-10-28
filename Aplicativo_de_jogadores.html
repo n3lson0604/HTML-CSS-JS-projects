@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArenaStats - Controle de Estatísticas</title>
+</head>
+<body>
+<style>
+  body {
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(135deg, #0a0a0a, #1b1b1b);
+    color: white;
+    margin: 0;
+    text-align: center;
+    padding-bottom: 100px;
+  }
+
+  h1 {
+    color: #00bfff;
+    margin-top: 20px;
+  }
+
+  form {
+    background: #1f1f1f;
+    width: 95%;
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 12px;
+  }
+
+  input, select {
+    width: 48%;
+    padding: 10px;
+    margin: 5px 1%;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+    background: #2a2a2a;
+    color: white;
+  }
+
+  input[type="file"] {
+    background: none;
+    width: 98%;
+  }
+
+  button {
+    background: #00bfff;
+    border: none;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+  }
+
+  button:hover {
+    background: #0090cc;
+  }
+
+  .perfil-card {
+    background: #222;
+    padding: 20px;
+    border-radius: 15px;
+    width: 330px;
+    margin: 25px auto;
+    box-shadow: 0 0 15px #00bfff;
+  }
+
+  .avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #00bfff;
+  }
+
+  canvas {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    margin: 20px auto;
+    display: block;
+  }
+
+  #dicas {
+    background: #1f1f1f;
+    width: 90%;
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: left;
+  }
+
+  ul { list-style: none; padding-left: 10px; }
+
+  #jogadoresSalvos {
+    background: #1f1f1f;
+    width: 90%;
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  select#listaJogadores {
+    width: 70%;
+    background: #2a2a2a;
+    color: white;
+    border-radius: 5px;
+    padding: 8px;
+    border: none;
+  }
+
+  @media (max-width: 600px) {
+    input, select { width: 100%; }
+    .perfil-card { width: 90%; }
+  }
+</style>
+<h1>ArenaStats - Controle de Estatísticas</h1>
+
+<form id="formStats">
+  <input type="text" id="nome" placeholder="Nome do atleta" required>
+  <select id="desporto" required>
+    <option value="">Escolha o desporto</option>
+    <option>Futebol</option>
+    <option>Basquete</option>
+  </select>
+  <input type="text" id="posicao" placeholder="Posição (ex: Atacante, Armador)">
+  <input type="number" id="idade" placeholder="Idade" min="10" max="60">
+  <input type="number" id="altura" placeholder="Altura (cm)">
+  <input type="number" id="peso" placeholder="Peso (kg)">
+  <br>
+
+  <input type="number" id="velocidade" placeholder="Velocidade (0-100)" min="0" max="100">
+  <input type="number" id="forca" placeholder="Força (0-100)" min="0" max="100">
+  <input type="number" id="precisao" placeholder="Precisão (0-100)" min="0" max="100">
+  <input type="number" id="resistencia" placeholder="Resistência (0-100)" min="0" max="100">
+  <input type="number" id="drible" placeholder="Drible (0-100)" min="0" max="100">
+  <input type="number" id="passe" placeholder="Passe (0-100)" min="0" max="100">
+  <input type="number" id="finalizacao" placeholder="Finalização (0-100)" min="0" max="100">
+  <input type="number" id="defesa" placeholder="Defesa (0-100)" min="0" max="100">
+  <br>
+  <label>📸 Foto do atleta:</label><br>
+  <input type="file" id="foto" accept="image/*">
+  <br><br>
+  <button type="submit">Gerar Estatísticas</button>
+</form>
+
+<div id="jogadoresSalvos">
+  <h3>Jogadores Salvos</h3>
+  <select id="listaJogadores"></select>
+  <button id="carregarJogador">Carregar</button>
+  <button id="apagarJogador">Apagar</button>
+</div>
+
+<div id="resultado"></div>
+<canvas id="grafico"></canvas>
+<div id="dicas"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const lista = document.getElementById("listaJogadores");
+const storageKey = "arenaStatsJogadores";
+let jogadores = JSON.parse(localStorage.getItem(storageKey)) || [];
+
+function atualizarLista() {
+  lista.innerHTML = jogadores.length ? jogadores.map((j,i)=>`<option value="${i}">${j.nome}</option>`).join('') : '<option>Sem jogadores salvos</option>';
+}
+atualizarLista();
+
+document.getElementById("formStats").addEventListener("submit", async function(e){
+  e.preventDefault();
+  const jogador = await capturarDados();
+  salvarJogador(jogador);
+  mostrarJogador(jogador);
+});
+
+document.getElementById("carregarJogador").addEventListener("click", () => {
+  const i = lista.value;
+  if (!jogadores[i]) return alert("Nenhum jogador selecionado.");
+  mostrarJogador(jogadores[i]);
+});
+
+document.getElementById("apagarJogador").addEventListener("click", () => {
+  const i = lista.value;
+  if (jogadores[i] && confirm("Apagar este jogador?")) {
+    jogadores.splice(i,1);
+    localStorage.setItem(storageKey, JSON.stringify(jogadores));
+    atualizarLista();
+    alert("Jogador removido.");
+  }
+});
+
+function lerImagem(fotoInput) {
+  return new Promise(resolve => {
+    if (fotoInput.files && fotoInput.files[0]) {
+      const leitor = new FileReader();
+      leitor.onload = e => resolve(e.target.result);
+      leitor.readAsDataURL(fotoInput.files[0]);
+    } else {
+      resolve("https://cdn-icons-png.flaticon.com/512/847/847969.png");
+    }
+  });
+}
+
+async function capturarDados() {
+  const fotoInput = document.getElementById("foto");
+  const fotoURL = await lerImagem(fotoInput);
+
+  return {
+    nome: document.getElementById("nome").value,
+    desporto: document.getElementById("desporto").value,
+    posicao: document.getElementById("posicao").value || "Não definida",
+    idade: document.getElementById("idade").value,
+    altura: document.getElementById("altura").value,
+    peso: document.getElementById("peso").value,
+    velocidade: +document.getElementById("velocidade").value || 0,
+    forca: +document.getElementById("forca").value || 0,
+    precisao: +document.getElementById("precisao").value || 0,
+    resistencia: +document.getElementById("resistencia").value || 0,
+    drible: +document.getElementById("drible").value || 0,
+    passe: +document.getElementById("passe").value || 0,
+    finalizacao: +document.getElementById("finalizacao").value || 0,
+    defesa: +document.getElementById("defesa").value || 0,
+    foto: fotoURL
+  };
+}
+
+function salvarJogador(jogador){
+  const existente = jogadores.find(j => j.nome === jogador.nome);
+  if (existente) Object.assign(existente, jogador);
+  else jogadores.push(jogador);
+  localStorage.setItem(storageKey, JSON.stringify(jogadores));
+  atualizarLista();
+}
+
+function mostrarJogador(j){
+  document.getElementById("resultado").innerHTML = `
+    <div class="perfil-card">
+      <img src="${j.foto}" class="avatar">
+      <h2>${j.nome}</h2>
+      <p><b>${j.desporto}</b> | ${j.posicao}</p>
+      <p>Idade: ${j.idade} | Altura: ${j.altura} cm | Peso: ${j.peso} kg</p>
+    </div>
+  `;
+
+  const ctx = document.getElementById("grafico").getContext("2d");
+  if (window.radarChart) window.radarChart.destroy();
+
+  const atributos = ['Velocidade','Força','Precisão','Resistência','Drible','Passe','Finalização','Defesa'];
+  const valores = [j.velocidade,j.forca,j.precisao,j.resistencia,j.drible,j.passe,j.finalizacao,j.defesa];
+
+  window.radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: atributos,
+      datasets: [{
+        data: valores,
+        fill: true,
+        backgroundColor: 'rgba(0,191,255,0.2)',
+        borderColor: '#00bfff',
+        pointBackgroundColor: '#00bfff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      scales: {
+        r: {
+          angleLines: { color: "#333" },
+          grid: { color: "#444" },
+          pointLabels: { color: "white", font: { size: 13 } },
+          suggestedMin: 0,
+          suggestedMax: 100
+        }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  gerarDicas(j);
+}
+
+function gerarDicas(j){
+  const dicas = [];
+  const media = (j.velocidade+j.forca+j.precisao+j.resistencia+j.drible+j.passe+j.finalizacao+j.defesa)/8;
+
+ 
+  let novaPosicao = "";
+  if (j.desporto === "Futebol") {
+    if (j.finalizacao > 80 && j.velocidade > 75 && j.defesa < 60)
+      novaPosicao = "Atacante";
+    else if (j.passe > 75 && j.drible > 65 && j.finalizacao < 85)
+      novaPosicao = "Meio-campista";
+    else if (j.defesa > 75 && j.forca > 70)
+      novaPosicao = "Zagueiro";
+    else if (j.velocidade > 75 && j.resistencia > 70 && j.defesa > 60)
+      novaPosicao = "Lateral";
+  } else {
+    if (j.drible > 80 && j.passe > 70 && j.finalizacao < 80)
+      novaPosicao = "Armador";
+    else if (j.finalizacao > 80 && j.velocidade > 75)
+      novaPosicao = "Ala";
+    else if (j.forca > 75 && j.defesa > 70 && j.altura > 190)
+      novaPosicao = "Pivô";
+  }
+
+  if (novaPosicao && novaPosicao !== j.posicao)
+    dicas.push(` Suas habilidades indicam que você se sairia melhor como **${novaPosicao}**.`);
+
+ 
+  if (j.velocidade < 60) dicas.push(" Trabalhe em sprints curtos para melhorar velocidade.");
+  if (j.forca < 60) dicas.push(" Fortaleça pernas e core com musculação.");
+  if (j.precisao < 60) dicas.push(" Pratique passes e finalizações precisas.");
+  if (j.resistencia < 60) dicas.push(" Faça treinos de resistência contínua.");
+  if (j.drible < 60) dicas.push(" Treine dribles e controle de bola.");
+  if (j.passe < 60) dicas.push(" Melhore passes e visão de jogo.");
+  if (j.finalizacao < 60) dicas.push(" Pratique chutes e finalizações com ambos os pés.");
+  if (j.defesa < 60) dicas.push(" Melhore interceptações e posicionamento.");
+
+  if (media >= 80) dicas.push(" Nível profissional! Continue focado!");
+  else if (media < 40) dicas.push(" Intensifique seus treinos para evolução rápida.");
+
+  document.getElementById("dicas").innerHTML = `
+    <h3>💡 Dicas e Análise</h3>
+    <ul>${dicas.map(d => `<li>${d}</li>`).join('')}</ul>
+  `;
+}
+</script>
+</body>
+</html>
